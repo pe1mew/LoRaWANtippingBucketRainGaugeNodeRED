@@ -4,6 +4,14 @@ A NodeRed flow for a tipping bucket raing gauge on LoRaWAN with a Dragino LDS01
 # Notice
 **This is work in progress** The documentation and code is at a pre-pre-alpha phase; *Changes may apply anytime without notice*.
 
+# Notes
+These are notes that com with the different versions 
+
+# 5-12-2021
+The current flow is a HTTP post portal where TTN can submut it's data. The data received is than unified so it can be used in other applications than this one. The *Tipping bucket logic* is calculating mm rain fall from bucket-tips as they are presented by a Dragino LDS01 that presents the times that a door was opened and the current state of the door.
+
+![flow](/images/flow.png)
+
 ### Disclaimer
 This repository is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
