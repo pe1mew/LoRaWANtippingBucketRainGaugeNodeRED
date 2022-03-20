@@ -1,1 +1,469 @@
-[{"id":"5b55d0d2.9958a","type":"http in","z":"b70b9c25.04ce48","name":"regendev V3","url":"/regendev","method":"post","upload":false,"swaggerDoc":"","x":110,"y":940,"wires":[["fef0b6e.3decac8"]]},{"id":"fef0b6e.3decac8","type":"function","z":"b70b9c25.04ce48","name":"Data processor V3 webhook","func":"// objects counted counted in payload\nvar objectCount = msg.payload.length;\nconst sourceIdentifier = \"118EBE99AFBA1C7D6B7D576741EA2\";\n\n// Create variables to hold JSON \nvar msgc = {};\nvar msgp = {};\nvar result = {};\n\n// Prepare http responce\nvar msg200 = {};        // Variable to hold http responce message\nmsg200.payload = \"200\"; // \"200\" for OK\nmsg200.req = msg.req;   // req from original msg for http responce node\nmsg200.res = msg.res;   // res from original msg for http responce node\n\nvar tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds\nmsg.collectedTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 19).replace('T', ' ');\n\n// Test if source is know,\n// Verification 1: Test for number of objects in array. Shall be > 3\nif( msg.req.headers.sourceidentifier === sourceIdentifier){\n    node.send([[msg200],[msg],[msg]]);\n}else{\n    node.send([[null],[null],[msg]]);\n}\n","outputs":3,"noerr":0,"initialize":"","finalize":"","x":340,"y":940,"wires":[["5edce3d5.241e6c"],["be68d820.c2429","c4071c05.1d3bd"],[]],"info":"-----------------------------------------------------------------\nThis Node is part of the PE1MEW http POST application.\n\nThe PE1MEW Node-Red http POST application is free software: \nYou may redistribute it and/or modify it under the terms of \na Creative Commons Attribution-NonCommercial 4.0 International \nLicense (http://creativecommons.org/licenses/by-nc/4.0/) by \nPE1MEW (http://pe1mew.nl) E-mail: pe1mew@pe1mew.nl\n\nThe PE1MEW http POST application is distributed in the \nhope that it will be useful, but WITHOUT ANY WARRANTY; \nWithout even the implied warranty of MERCHANTABILITY or \nFITNESS FOR A PARTICULAR PURPOSE.\n-----------------------------------------------------------------\n\\brief Receive http POST data from a LoRaWAN portal\n\\date See version table\n\\author Remko Welling (pe1mew@pe1mew.nl)\n\\version See version history\n\n## Version history\n\nversion | Date      | Athour | Notes\n--------|-----------|--------|-----------------------------------\n1.0     | 12-1-2020 | PE1MEW | First release\n1.1     | 5-12-2021 | PE1MEW | relese to the public\n\n## ToDo\n"},{"id":"5edce3d5.241e6c","type":"http response","z":"b70b9c25.04ce48","name":"Post Reply","statusCode":"","headers":{},"x":590,"y":900,"wires":[]},{"id":"490edf3.ce8cda","type":"inject","z":"b70b9c25.04ce48","name":"07:00 sample","props":[{"p":"payload"},{"p":"source","v":"TIME","vt":"str"},{"p":"moment","v":"7","vt":"num"}],"repeat":"","crontab":"00 07 * * *","once":false,"onceDelay":0.1,"topic":"","payload":"","payloadType":"date","x":600,"y":1060,"wires":[["f6e6a9a5.26f5c"]]},{"id":"be68d820.c2429","type":"debug","z":"b70b9c25.04ce48","name":"","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":570,"y":980,"wires":[]},{"id":"c4071c05.1d3bd","type":"function","z":"b70b9c25.04ce48","name":"Unifier TTNV3","func":"var unified = {};\nunified.source = \"TTNV3\";\n\nif('join_accept' in msg.payload){\n    return;\n}\n\n// unified.dateTime = msg.collectedTime;\nvar tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds\nvar dateTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 19).replace('T', ' ');\nunified.dateTime = dateTime;\n\nunified.devID = msg.payload.end_device_ids.device_id;\nunified.appEUI = msg.payload.end_device_ids.join_eui;\nunified.devEUI = msg.payload.end_device_ids.dev_eui;\nunified.fcnt = msg.payload.uplink_message.f_cnt;\nunified.port = msg.payload.uplink_message.f_port;\nunified.devAddr = msg.payload.end_device_ids.dev_addr;\nunified.frequency = parseInt(msg.payload.uplink_message.settings.frequency)/1000000;\nunified.sf = \"SF\" + msg.payload.uplink_message.settings.data_rate.lora.spreading_factor + \"BW\" + (msg.payload.uplink_message.settings.data_rate.lora.bandwidth/1000).toFixed();\nunified.payload = {};\nunified.payload.buffer = Buffer.from(msg.payload.uplink_message.frm_payload, 'base64');\nunified.payload.size = Buffer.byteLength(msg.payload.uplink_message.frm_payload);\nunified.payload.base64 = msg.payload.uplink_message.frm_payload;\nunified.payload.decoded = {};\nunified.payload.decoded = msg.payload.uplink_message.decoded_payload;\n\nunified.metaData = {};\nunified.metaData.gatewayCount = msg.payload.uplink_message.rx_metadata.length;\nunified.metaData.gateways = [];\nfor (var i=0 ; i < unified.metaData.gatewayCount ; i++) {\n    var data = {};\n    data.name = msg.payload.uplink_message.rx_metadata[i].gateway_ids.gateway_id;\n    \n    if(typeof msg.payload.uplink_message.rx_metadata[i].gateway_ids.eui !== 'undefined') {\n        data.id = msg.payload.uplink_message.rx_metadata[i].gateway_ids.eui;\n    } else {\n        data.id = 0;\n    }\n    \n    data.rssi = msg.payload.uplink_message.rx_metadata[i].rssi;\n    data.snr = msg.payload.uplink_message.rx_metadata[i].snr;\n    \n    if(typeof msg.payload.uplink_message.rx_metadata[i].location !== 'undefined') {\n        data.lat = msg.payload.uplink_message.rx_metadata[i].location.latitude;\n        data.lon = msg.payload.uplink_message.rx_metadata[i].location.longitude;\n        data.height = msg.payload.uplink_message.rx_metadata[i].location.altitude;\n    } else {\n        data.lat = 0;\n        data.lon = 0;\n        data.height = 0;\n    }\n    \n    unified.metaData.gateways.push(data);\n}\n\nreturn unified;","outputs":1,"noerr":0,"initialize":"","finalize":"","x":600,"y":940,"wires":[["f6e6a9a5.26f5c"]],"inputLabels":["Helium"],"outputLabels":["Unified"],"icon":"font-awesome/fa-arrows-alt","info":"-----------------------------------------------------------------\nThis Node is part of the PE1MEW tipping bucket application.\n\nThe PE1MEW Node-Red tipping bucket application is free software: \nYou may redistribute it and/or modify it under the terms of \na Creative Commons Attribution-NonCommercial 4.0 International \nLicense (http://creativecommons.org/licenses/by-nc/4.0/) by \nPE1MEW (http://pe1mew.nl) E-mail: pe1mew@pe1mew.nl\n\nThe PE1MEW tipping bucket application is distributed in the \nhope that it will be useful, but WITHOUT ANY WARRANTY; \nWithout even the implied warranty of MERCHANTABILITY or \nFITNESS FOR A PARTICULAR PURPOSE.\n-----------------------------------------------------------------\n\\brief Unify TTN V3 webhook information\n\\date See version table\n\\author Remko Welling (pe1mew@pe1mew.nl)\n\\version See version history\n\n## Version history\n\nversion | Date      | Athour | Notes\n--------|-----------|--------|-----------------------------------\n1.0     | 5-12-2021 | PE1MEW | release to the public\n\n## ToDo\n"},{"id":"f6e6a9a5.26f5c","type":"function","z":"b70b9c25.04ce48","name":"LDS01 Tipping Bucket Logic","func":"const mmPerTip = 1.0;\n\nvar _rainTemplate = {\n\t\"lastTip\" : 0,\n\t\"twelveHours\" : 0,\n\t\"lastTwelveHours\" : 0\n}\n\nvar rainData = flow.get(\"rainData\");\nif (rainData === undefined) //test exists\n{\n  rainData = _rainTemplate;\n}\n\nswitch(msg.source){\n    case \"TTNV3\":\n        msg.received = msg.payload;\n        msg.payload = {};\n        \n        let doorStatus = msg.received.decoded.doorOpenTimes * 2 - 2;\n        let count = -1 * (msg.received.decoded.doorOpenStatus - 1) + doorStatus + 1;\n        \n        msg.payload.rainFallTotalmm = count * mmPerTip;\n        msg.payload.rainFallmm = (count - rainData.lastTip) * mmPerTip;\n        rainData.lastTip = count;\n\n        msg.payload.rainFallTwelveHours = rainData.twelveHours + msg.payload.rainFallmm;\n        rainData.twelveHours = msg.payload.rainFallTwelveHours;\n\n        break;\n        \n    case \"TIME\":\n        msg.payload = {};\n        msg.payload.twelveHours = rainData.twelveHours;\n        msg.payload.hour = msg.moment;\n        \n        rainData.lastTwelveHours = rainData.twelveHours;\n        rainData.twelveHours = 0;\n        \n        break; \n        \n    default:\n    \n        break;\n}\n\nflow.set(\"rainData\", rainData);\n\nreturn msg;","outputs":1,"noerr":0,"initialize":"","finalize":"","x":840,"y":940,"wires":[["3430b0fa.9b5ad"]],"info":"-----------------------------------------------------------------\nThis Node is part of the PE1MEW tipping bucket application.\n\nThe PE1MEW Node-Red tipping bucket application is free software: \nYou may redistribute it and/or modify it under the terms of \na Creative Commons Attribution-NonCommercial 4.0 International \nLicense (http://creativecommons.org/licenses/by-nc/4.0/) by \nPE1MEW (http://pe1mew.nl) E-mail: pe1mew@pe1mew.nl\n\nThe PE1MEW tipping bucket application is distributed in the \nhope that it will be useful, but WITHOUT ANY WARRANTY; \nWithout even the implied warranty of MERCHANTABILITY or \nFITNESS FOR A PARTICULAR PURPOSE.\n-----------------------------------------------------------------\n\\brief Convert LDS01 payload into mm rain and store per 12 hours\n\\date See version table\n\\author Remko Welling (pe1mew@pe1mew.nl)\n\\version See version history\n\n## Version history\n\nversion | Date      | Athour | Notes\n--------|-----------|--------|-----------------------------------\n1.0     | 5-12-2021 | PE1MEW | relese to the public\n\n## ToDo\n"},{"id":"3430b0fa.9b5ad","type":"debug","z":"b70b9c25.04ce48","name":"","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1030,"y":940,"wires":[]},{"id":"d3f0a813.f64058","type":"inject","z":"b70b9c25.04ce48","name":"19:00 sample","props":[{"p":"payload"},{"p":"source","v":"TIME","vt":"str"},{"p":"moment","v":"19","vt":"num"}],"repeat":"","crontab":"00 19 * * *","once":false,"onceDelay":0.1,"topic":"","payload":"","payloadType":"date","x":600,"y":1020,"wires":[["f6e6a9a5.26f5c"]]}]
+[
+    {
+        "id": "242289a5abf6314d",
+        "type": "mqtt in",
+        "z": "7c4328ce57c69431",
+        "name": "TTN Wenumseveld Regenmeter",
+        "topic": "v3/+/devices/+/up",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "5e313c499c7b0982",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 170,
+        "y": 3260,
+        "wires": [
+            [
+                "bad53b36.7ca658"
+            ]
+        ]
+    },
+    {
+        "id": "d3f0a813.f64058",
+        "type": "inject",
+        "z": "7c4328ce57c69431",
+        "name": "19:00 sample",
+        "props": [
+            {
+                "p": "dateTime",
+                "v": "",
+                "vt": "date"
+            },
+            {
+                "p": "source",
+                "v": "TIME",
+                "vt": "str"
+            },
+            {
+                "p": "moment",
+                "v": "19:00",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "00 19 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 400,
+        "y": 3320,
+        "wires": [
+            [
+                "6d8d1c7747e67273"
+            ]
+        ]
+    },
+    {
+        "id": "490edf3.ce8cda",
+        "type": "inject",
+        "z": "7c4328ce57c69431",
+        "name": "07:00 sample",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "source",
+                "v": "TIME",
+                "vt": "str"
+            },
+            {
+                "p": "moment",
+                "v": "07:00",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "00 07 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 400,
+        "y": 3360,
+        "wires": [
+            [
+                "6d8d1c7747e67273"
+            ]
+        ]
+    },
+    {
+        "id": "bad53b36.7ca658",
+        "type": "function",
+        "z": "7c4328ce57c69431",
+        "name": "Unifier TTNV3",
+        "func": "var unified = {};\nunified.source = \"TTNV3\";\n\n\nif('join_accept' in msg.payload){\n    return;\n}\n\n// unified.dateTime = msg.collectedTime;\nvar tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds\nvar dateTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 19).replace('T', ' ');\nunified.dateTime = dateTime;\n\nunified.devID = msg.payload.end_device_ids.device_id;\nunified.appEUI = msg.payload.end_device_ids.join_eui;\nunified.devEUI = msg.payload.end_device_ids.dev_eui;\n\nif(typeof msg.payload.uplink_message.f_cnt !== 'undefined') {\n    unified.fcnt = msg.payload.uplink_message.f_cnt\n}else{\n    unified.fcnt = 0;\n}\n\nunified.port = msg.payload.uplink_message.f_port;\nunified.devAddr = msg.payload.end_device_ids.dev_addr;\nunified.frequency = parseInt(msg.payload.uplink_message.settings.frequency)/1000000;\n\nunified.sf = msg.payload.uplink_message.settings.data_rate.lora.spreading_factor\n// unified.sf = \"\";\n\nunified.payload = {};\nunified.payload.buffer = Buffer.from(msg.payload.uplink_message.frm_payload, 'base64');\nunified.payload.size = Buffer.byteLength(msg.payload.uplink_message.frm_payload);\nunified.payload.base64 = msg.payload.uplink_message.frm_payload;\nunified.payload.decoded = {};\nunified.payload.decoded = msg.payload.uplink_message.decoded_payload;\n\nunified.metaData = {};\nunified.metaData.gatewayCount = msg.payload.uplink_message.rx_metadata.length;\nunified.metaData.gateways = [];\nfor (var i=0 ; i < unified.metaData.gatewayCount ; i++) {\n    var data = {};\n    data.name = msg.payload.uplink_message.rx_metadata[i].gateway_ids.gateway_id;\n    \n    if(typeof msg.payload.uplink_message.rx_metadata[i].gateway_ids.eui !== 'undefined') {\n        data.id = msg.payload.uplink_message.rx_metadata[i].gateway_ids.eui;\n    } else {\n        data.id = 0;\n    }\n    \n    data.rssi = msg.payload.uplink_message.rx_metadata[i].rssi;\n    data.snr = msg.payload.uplink_message.rx_metadata[i].snr;\n    \n    if(typeof msg.payload.uplink_message.rx_metadata[i].location !== 'undefined') {\n        data.lat = msg.payload.uplink_message.rx_metadata[i].location.latitude;\n        data.lon = msg.payload.uplink_message.rx_metadata[i].location.longitude;\n        data.height = msg.payload.uplink_message.rx_metadata[i].location.altitude;\n    } else {\n        data.lat = 0;\n        data.lon = 0;\n        data.height = 0;\n    }\n    \n    unified.metaData.gateways.push(data);\n}\n\nreturn unified;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 3260,
+        "wires": [
+            [
+                "6d8d1c7747e67273"
+            ]
+        ],
+        "inputLabels": [
+            "Helium"
+        ],
+        "outputLabels": [
+            "Unified"
+        ],
+        "icon": "font-awesome/fa-arrows-alt"
+    },
+    {
+        "id": "6d8d1c7747e67273",
+        "type": "function",
+        "z": "7c4328ce57c69431",
+        "name": "LDS01 Tipping Bucket Logic",
+        "func": "const mmPerTip = 0.5;\n\nvar _rainTemplate = {\n\t\"lastTip\" : 0,\n\t\"lastTipTime\" : \"notset\",\n\t\"twelveHours\" : 0,\n\t\"lastTwelveHours\" : 0\n}\n\nvar tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds\nmsg.collectedTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16).replace('T', ' ');\n\nvar rainData = flow.get(\"rainData\");\nif (rainData === undefined) //test exists\n{\n  rainData = _rainTemplate;\n}\n\nmsg.received = msg.payload;\nmsg.payload = {};\n        \nswitch(msg.source){\n    case \"TTNV3\":\n        // msg.received = msg.payload;\n        // msg.payload = {};\n        \n        let doorStatus = msg.received.decoded.doorOpenTimes * 2 - 2;\n        let count = -1 * (msg.received.decoded.doorOpenStatus - 1) + doorStatus + 1;\n        \n        msg.payload.rainFallTotalmm = count * mmPerTip;\n        msg.payload.rainFallmm = (count - rainData.lastTip) * mmPerTip;\n        rainData.lastTip = count;\n        rainData.lastTipTime = msg.dateTime;\n        // msg.payload.rainFallTwelveHours\n        msg.payload.rainFallTwelveHours = rainData.twelveHours + msg.payload.rainFallmm;\n        msg.payload.rainFallLastTwelveHours = rainData.lastTwelveHours;\n        rainData.twelveHours = msg.payload.rainFallTwelveHours;\n        node.send(msg);\n        break;\n        \n    case \"TIME\":\n        rainData.lastTwelveHours = rainData.twelveHours;\n        rainData.twelveHours = 0;\n        \n        msg.payload.rainFallLastTwelveHours = rainData.lastTwelveHours;\n        msg.payload.rainFallTwelveHours = rainData.twelveHours;\n        msg.payload.hour = msg.moment;\n        msg.dateTime = rainData.lastTipTime;\n        \n        node.send(msg);\n        break; \n        \n    default:\n        rainData.lastTwelveHours = rainData.twelveHours;\n        break;\n}\n\nflow.set(\"rainData\", rainData);\n\n// return msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 640,
+        "y": 3260,
+        "wires": [
+            [
+                "4c49984d276842c5",
+                "a3bfd841b6c103cc",
+                "798b134634fb7caa",
+                "b7bdfb220801b116",
+                "a386037a10649054",
+                "1c08d43e.ab1174",
+                "dafb989f0fb578ec"
+            ]
+        ],
+        "info": "-----------------------------------------------------------------\nThis Node is part of the PE1MEW tipping bucket application.\n\nThe PE1MEW Node-Red tipping bucket application is free software: \nYou may redistribute it and/or modify it under the terms of \na Creative Commons Attribution-NonCommercial 4.0 International \nLicense (http://creativecommons.org/licenses/by-nc/4.0/) by \nPE1MEW (http://pe1mew.nl) E-mail: pe1mew@pe1mew.nl\n\nThe PE1MEW tipping bucket application is distributed in the \nhope that it will be useful, but WITHOUT ANY WARRANTY; \nWithout even the implied warranty of MERCHANTABILITY or \nFITNESS FOR A PARTICULAR PURPOSE.\n-----------------------------------------------------------------\n\\brief Convert LDS01 payload into mm rain and store per 12 hours\n\\date See version table\n\\author Remko Welling (pe1mew@pe1mew.nl)\n\\version See version history\n\n## Version history\n\nversion | Date      | Athour | Notes\n--------|-----------|--------|-----------------------------------\n1.0     | 5-12-2021 | PE1MEW | relese to the public\n\n## ToDo\n"
+    },
+    {
+        "id": "4c49984d276842c5",
+        "type": "debug",
+        "z": "7c4328ce57c69431",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 870,
+        "y": 3260,
+        "wires": []
+    },
+    {
+        "id": "a3bfd841b6c103cc",
+        "type": "ui_text",
+        "z": "7c4328ce57c69431",
+        "group": "d7047153.433f28",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "name": "Last",
+        "label": "Update:",
+        "format": "{{msg.collectedTime}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 710,
+        "y": 3320,
+        "wires": []
+    },
+    {
+        "id": "798b134634fb7caa",
+        "type": "ui_text",
+        "z": "7c4328ce57c69431",
+        "group": "d7047153.433f28",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "Laatste 12H",
+        "label": "Vorige periode [mm]",
+        "format": "{{msg.payload.rainFallLastTwelveHours}}",
+        "layout": "row-spread",
+        "x": 730,
+        "y": 3360,
+        "wires": []
+    },
+    {
+        "id": "b7bdfb220801b116",
+        "type": "ui_text",
+        "z": "7c4328ce57c69431",
+        "group": "d7047153.433f28",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "name": "huidige 12H",
+        "label": "Huidige periode [mm]",
+        "format": "{{msg.payload.rainFallTwelveHours}}",
+        "layout": "row-spread",
+        "x": 730,
+        "y": 3400,
+        "wires": []
+    },
+    {
+        "id": "398be195e81651d8",
+        "type": "ui_text",
+        "z": "7c4328ce57c69431",
+        "group": "d7047153.433f28",
+        "order": 4,
+        "width": 5,
+        "height": 2,
+        "name": "definitie",
+        "label": "Regenval wordt gemeten in perioden van 12 uur om 7 uur in de ochtend en in de avond.",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 720,
+        "y": 3440,
+        "wires": []
+    },
+    {
+        "id": "a386037a10649054",
+        "type": "function",
+        "z": "7c4328ce57c69431",
+        "name": "Verifier switch",
+        "func": "msg.database = \"regen\";\n\nif(msg.source === \"TTNV3\"){\n    return [msg, null];\n}else if(msg.source === \"TIME\"){\n    return [null, msg];\n}\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 3520,
+        "wires": [
+            [
+                "42bf2b62f1e69d29"
+            ],
+            [
+                "b1ef6fdd5aa7f191"
+            ]
+        ]
+    },
+    {
+        "id": "42bf2b62f1e69d29",
+        "type": "template",
+        "z": "7c4328ce57c69431",
+        "name": "MySQL Insert Actual",
+        "field": "topic",
+        "fieldType": "msg",
+        "format": "javascript",
+        "syntax": "mustache",
+        "template": "INSERT INTO `{{database}}` (`dateTime`,`sensor`,`rainFallmm`,`rainFallTotalmm`) VALUES (\"{{dateTime}}\",\"{{devID}}\",{{payload.rainFallTwelveHours}},{{payload.rainFallTotalmm}})",
+        "output": "str",
+        "x": 660,
+        "y": 3500,
+        "wires": [
+            [
+                "fb024a8086409210"
+            ]
+        ]
+    },
+    {
+        "id": "b1ef6fdd5aa7f191",
+        "type": "template",
+        "z": "7c4328ce57c69431",
+        "name": "MySQL Insert 12H",
+        "field": "topic",
+        "fieldType": "msg",
+        "format": "javascript",
+        "syntax": "mustache",
+        "template": "INSERT INTO `{{database}}` (`dateTime`,`sensor`,`hour`,`rainFallTwelveHours`) VALUES (\"{{dateTime}}\",\"{{devID}}\",\"{{payload.hour}}\",{{payload.rainFallLastTwelveHours}})",
+        "output": "str",
+        "x": 650,
+        "y": 3540,
+        "wires": [
+            [
+                "fb024a8086409210"
+            ]
+        ]
+    },
+    {
+        "id": "fb024a8086409210",
+        "type": "mysql",
+        "z": "7c4328ce57c69431",
+        "mydb": "7e77ccbba6b26340",
+        "name": "wenumseveld",
+        "x": 880,
+        "y": 3520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "1c08d43e.ab1174",
+        "type": "trigger",
+        "z": "7c4328ce57c69431",
+        "name": "",
+        "op1": "true",
+        "op2": "false",
+        "op1type": "bool",
+        "op2type": "bool",
+        "duration": "49",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "hr",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 550,
+        "y": 3600,
+        "wires": [
+            [
+                "b99e900c.2b046"
+            ]
+        ]
+    },
+    {
+        "id": "b99e900c.2b046",
+        "type": "ui_led",
+        "z": "7c4328ce57c69431",
+        "order": 7,
+        "group": "d7047153.433f28",
+        "width": 2,
+        "height": 1,
+        "label": "48H",
+        "labelPlacement": "left",
+        "labelAlignment": "left",
+        "colorForValue": [
+            {
+                "color": "#ff0000",
+                "value": "false",
+                "valueType": "bool"
+            },
+            {
+                "color": "#008000",
+                "value": "true",
+                "valueType": "bool"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "circle",
+        "showGlow": true,
+        "name": "",
+        "x": 710,
+        "y": 3600,
+        "wires": []
+    },
+    {
+        "id": "e5fa19b5f32c67d7",
+        "type": "ui_led",
+        "z": "7c4328ce57c69431",
+        "order": 5,
+        "group": "d7047153.433f28",
+        "width": 2,
+        "height": 1,
+        "label": "24H",
+        "labelPlacement": "left",
+        "labelAlignment": "left",
+        "colorForValue": [
+            {
+                "color": "#ff8040",
+                "value": "false",
+                "valueType": "bool"
+            },
+            {
+                "color": "#0080ff",
+                "value": "true",
+                "valueType": "bool"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "circle",
+        "showGlow": true,
+        "name": "",
+        "x": 710,
+        "y": 3640,
+        "wires": []
+    },
+    {
+        "id": "dafb989f0fb578ec",
+        "type": "trigger",
+        "z": "7c4328ce57c69431",
+        "name": "",
+        "op1": "true",
+        "op2": "false",
+        "op1type": "bool",
+        "op2type": "bool",
+        "duration": "25",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "hr",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 550,
+        "y": 3640,
+        "wires": [
+            [
+                "e5fa19b5f32c67d7"
+            ]
+        ]
+    },
+    {
+        "id": "5e313c499c7b0982",
+        "type": "mqtt-broker",
+        "name": "Regenmeter",
+        "broker": "eu1.cloud.thethings.network",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "sessionExpiry": "",
+        "info": "key"
+    },
+    {
+        "id": "d7047153.433f28",
+        "type": "ui_group",
+        "name": "Rainfall",
+        "tab": "c1200a4b.d4fbd8",
+        "order": 2,
+        "disp": true,
+        "width": "5",
+        "collapse": true
+    },
+    {
+        "id": "7e77ccbba6b26340",
+        "type": "MySQLdatabase",
+        "name": "wenumseveld",
+        "host": "127.0.0.1",
+        "port": "3306",
+        "db": "wenumseveld",
+        "tz": "",
+        "charset": ""
+    },
+    {
+        "id": "c1200a4b.d4fbd8",
+        "type": "ui_tab",
+        "name": "RFSee",
+        "icon": "wi-wu-chancerain",
+        "disabled": false,
+        "hidden": false
+    }
+]
