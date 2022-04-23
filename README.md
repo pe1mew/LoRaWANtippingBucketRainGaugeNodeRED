@@ -7,6 +7,9 @@ A NodeRed flow for a tipping bucket raing gauge on LoRaWAN with a Dragino LDS01
 # Notes
 These are notes that come with the different versions 
 
+# 23-4-2022
+Added the payload decoder for TTN V3 to the repo that works with this flow after a note from @nottheedge on Twitter.
+
 # 20-4-2022
 Added STL files and images on how to install the LDS01 in the bucket.
 
